@@ -1,13 +1,10 @@
 from __future__ import print_function
 import tensorflow as tf
+import numpy as np
+import Read_left_15,Read_front_32
 
-def compute_accuracy(v_xs, v_ys):
-    global prediction
-    y_pre = sess.run(prediction, feed_dict={xs: v_xs, keep_prob: 1})
-    correct_prediction = tf.equal(tf.argmax(y_pre,1), tf.argmax(v_ys,1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-    result = sess.run(accuracy, feed_dict={xs: v_xs, ys: v_ys, keep_prob: 1})
-    return result
+batch_size = 32
+learing_rate = 0.01
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
@@ -27,66 +24,132 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 # define placeholder for inputs to network
-xs = tf.placeholder(tf.float32, [None, 50176])   # 28x28
-ys = tf.placeholder(tf.float32, [None, 1024])  #output
+xs = tf.placeholder(tf.float32, [batch_size, 224, 224])   # 224x224
+ys = tf.placeholder(tf.float32, [batch_size, 32, 32])  # ground truth
 keep_prob = tf.placeholder(tf.float32)
 x_image = tf.reshape(xs, [-1, 224, 224, 1])
-# print(x_image.shape)  # [n_samples, 28,28,1]
+# print(x_image.shape)  # [n_samples, 224,224,1]
 
 ##-----------conv_1_block layer---------- ##
 ## conv1_1 layer
-W_conv1_1 = weight_variable([3,3, 1,64]) # patch 3x3, in size 1, out size 32
+W_conv1_1 = weight_variable([3,3, 1,64]) # patch 3x3, in size 1, out size 64
 b_conv1_1 = bias_variable([64])
-h_conv1_1 = tf.nn.relu(conv2d(x_image, W_conv1_1) + b_conv1_1) # output size 224x224x64
+h_conv1_1 = tf.nn.relu(conv2d(xs, W_conv1_1) + b_conv1_1) # output size 224x224x64
 ## conv1_2 layer
 W_conv1_2 = weight_variable([3, 3, 64,64]) # patch 3x3, in size 64, out size 64
 b_conv1_2 = bias_variable([64])
 h_conv1_2 = tf.nn.relu(conv2d(h_conv1_1, W_conv1_2) + b_conv1_2) # output size 224x224x64
-conv1_pool = max_pool_2x2(h_conv1_2) # output size 112x112x64
+conv_1_pool = max_pool_2x2(h_conv1_2) # output size 112x112x64
+
+
 ##----------conv_2 block_layer---------- ##
 ## conv2_1 layer
-W_conv2_1 = weight_variable([112, 112, 64, 128]) # patch 3x3, in size 64, out size 128
+W_conv2_1 = weight_variable([3, 3, 64, 128]) # patch 3x3, in size 64, out size 128
 b_conv2_1 = bias_variable([128])
-h_conv2_1 = tf.nn.relu(conv2d(conv1_pool, W_conv2_1) + b_conv2_1) # output size 112x112x128
+h_conv2_1 = tf.nn.relu(conv2d(conv_1_pool, W_conv2_1) + b_conv2_1) # output size 112x112x128
 ## conv2_2 layer
-W_conv2_2 = weight_variable([112, 112, 128, 128]) # patch 3x3, in size 128, out size 128
+W_conv2_2 = weight_variable([3, 3, 128, 128]) # patch 3x3, in size 128, out size 128
 b_conv2_2 = bias_variable([128])
-h_conv2_2 = tf.nn.relu(conv2d([h_conv2_1, W_conv2_1]) + b_conv2_2) # output size 112x112x128
-conv2_pool = max_pool_2x2(h_conv2_2) # output size 56x56x128
+h_conv2_2 = tf.nn.relu(conv2d(h_conv2_1, W_conv2_2) + b_conv2_2) # output size 112x112x128
+conv_2_pool = max_pool_2x2(h_conv2_2) # output size 56x56x128
+
+
 ##----------conv_3 block_layer---------- ##
+## conv3_1 layer
+W_conv3_1 = weight_variable([3, 3, 128, 256]) # kernel_size 3x3, in channel 128, out channel 256
+b_conv3_1 = bias_variable([256])
+h_conv3_1 = tf.nn.relu(conv2d(conv_2_pool, W_conv3_1) + b_conv3_1) # output_size 56x56x256
+## conv3_2 layer
+W_conv3_2 = weight_variable([3, 3, 256, 256])
+b_conv3_2 = bias_variable([256])
+h_conv3_2 = tf.nn.relu(conv2d(h_conv3_1, W_conv3_2), + b_conv3_2) # output_size 56x56x256
+## conv3_3 layer
+W_conv3_3 = weight_variable([3, 3, 256, 256])
+b_conv3_3 = bias_variable([256])
+h_conv3_3 = tf.nn.relu(conv2d(h_conv3_2, W_conv3_3) + b_conv3_3) # output_size 56x56x256
+conv_3_pool = max_pool_2x2(h_conv3_3) # output_size 28x28x256
 
-## fc1 layer ##
-W_fc1 = weight_variable([7*7*64, 1024])
-b_fc1 = bias_variable([1024])
-# [n_samples, 7, 7, 64] ->> [n_samples, 7*7*64]
-h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-## fc2 layer ##
-W_fc2 = weight_variable([1024, 10])
-b_fc2 = bias_variable([10])
-prediction = tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+##----------conv_4 block_layer---------- ##
+## conv4_1 layer
+W_conv4_1 = weight_variable([3, 3, 256, 512])
+b_conv4_1 = bias_variable([512])
+h_conv4_1 = tf.nn.relu(conv2d(conv_3_pool, W_conv4_1) + b_conv4_1) # output_size 28x28x512
+## conv4_2 layer
+W_conv4_2 = weight_variable([3, 3, 512, 512])
+b_conv4_2 = bias_variable([512])
+h_conv4_2 = tf.nn.relu(conv2d(h_conv4_1, W_conv4_2) + b_conv4_2)
+## conv4_ layer
+W_conv4_3 = weight_variable([3, 3, 512, 512])
+b_conv4_3 = bias_variable([512])
+h_conv4_3 = tf.nn.relu(conv2d(h_conv4_2, W_conv3_3) + b_conv3_3)
+conv_4_pool = max_pool_2x2(h_conv4_3) # output_size 14x14x512
 
 
-# the error between prediction and real data
+##----------conv_5 block_layer---------- ##
+## conv5_1 layer
+W_conv5_1 = weight_variable([3, 3, 512, 512])
+b_conv5_1 = bias_variable([512])
+h_conv5_1 = tf.nn.relu(conv2d(conv_4_pool, W_conv5_1) + b_conv5_1) ##  output_size 14x14x512
+## conv5_2 layer
+W_conv5_2 = weight_variable([3, 3, 512, 512])
+b_conv5_2 = bias_variable([512])
+h_conv5_2 = tf.nn.relu(conv2d(h_conv5_1, W_conv5_2) + b_conv5_2) ##  output_size 14x14x512
+## conv5_3 layer
+W_conv5_3 = weight_variable([3, 3, 512, 512])
+b_conv5_3 = bias_variable([512])
+h_conv5_3 = tf.nn.relu(conv2d(h_conv5_2, W_conv5_3) + b_conv5_3)
+conv_5_pool = max_pool_2x2(h_conv5_3)   ##  output_size 7x7x512
+conv_5_pool_flat = tf.reshape(conv_5_pool, [-1, 7*7*512]) # samplesx25088
+
+
+## fcn_1 layer
+W_fcn1 = weight_variable([7*7*512, 4096])
+b_fcn1 = bias_variable([4096])
+h_fcn1 = tf.nn.relu(conv2d(conv_5_pool_flat, W_fcn1) + b_fcn1) # output_size 4096
+
+## fcn_2 layer
+W_fcn2 = weight_variable([4096, 4096])
+b_fcn2 = bias_variable([4096])
+h_fcn2 = tf.nn.relu(conv2d(h_fcn1, W_fcn2) + b_fcn2) # output_size 4096
+
+## prediction layer
+W_fcn3 = weight_variable([4096, 1024])
+b_fcn3 = bias_variable([1024])
+prediction = tf.nn.relu(conv2d(h_fcn2, W_fcn3) + b_fcn3) # output_size 1024
+
+## the error between prediction and real data
 cross_entropy = tf.reduce_mean(-tf.reduce_sum(ys * tf.log(prediction),
-                                              reduction_indices=[1]))       # loss
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+                                              reduction_indices=[1]))
+train_step = tf.train.GradientDescentOptimizer(learing_rate).minimize(cross_entropy)
 
-sess = tf.Session()
-# important step
-# tf.initialize_all_variables() no long valid from
-# 2017-03-02 if using tensorflow >= 0.12
-if int((tf.__version__).split('.')[1]) < 12 and int((tf.__version__).split('.')[0]) < 1:
-    init = tf.initialize_all_variables()
-else:
-    init = tf.global_variables_initializer()
-sess.run(init)
+## 如何计算prediction与真实值的误差来衡量一个精准度标准？？？
 
-for i in range(1000):
-    batch_xs, batch_ys = mnist.train.next_batch(100)
-    sess.run(train_step, feed_dict={xs: batch_xs, ys: batch_ys, keep_prob: 0.5})
-    if i % 50 == 0:
-        print(compute_accuracy(
-            mnist.test.images[:1000], mnist.test.labels[:1000]))
+## train
+image_lt_15, label_lt_15 = Read_left_15.read_and_decode("left_15.tfrecords")
+image_ff, label_ff = Read_front_32.read_and_decode("front_face_32.tfrecords")
+sess = tf.InteractiveSession()
+tf.global_variables_initializer().run()
+coord=tf.train.Coordinator()
+threads= tf.train.start_queue_runners(coord=coord)
+np_example_lt_15 = np.zeros((batch_size,224,224))
+np_l_lt_15= np.zeros((batch_size,1))
+
+np_example_ff = np.zeros((batch_size,32,32))
+np_l_ff = np.zeros((batch_size,1))
+
+with tf.Session() as sess:
+    try:
+        sess.run(tf.initialize_all_variables)
+        for iteration in range(60):
+            for i in range(batch_size):
+                np_example_lt_15[i], np_l_lt_15[i] = sess.run([image_lt_15, label_lt_15])  # 在会话中取出image和label
+            train_step.run(feed_dict={xs: np_example_lt_15, ys: np_l_lt_15})
+        print()  # accurace???
+
+    except tf.errors.OutOfRangeError:
+        print('done!')
+    finally:
+        coord.request_stop()
+    coord.join(threads)
+
