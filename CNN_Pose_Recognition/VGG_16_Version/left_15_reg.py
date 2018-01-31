@@ -23,12 +23,14 @@ def max_pool_2x2(x):
     # stride [1, x_movement, y_movement, 1]
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
+def fully_connect(x, W):
+    return tf.nn.conv2d(x, W, strides=[], padding='')
+
 # define placeholder for inputs to network
-xs = tf.placeholder(tf.float32, [batch_size, 224, 224])   # 224x224
+xs = tf.placeholder(tf.float32, [batch_size, 224, 224, 1])   # 224x224
 ys = tf.placeholder(tf.float32, [batch_size, 32, 32])  # ground truth
 keep_prob = tf.placeholder(tf.float32)
-x_image = tf.reshape(xs, [-1, 224, 224, 1])
-# print(x_image.shape)  # [n_samples, 224,224,1]
+y_gt = tf.reshape(ys, [-1, 1024])  # [batch_size, 1024]
 
 ##-----------conv_1_block layer---------- ##
 ## conv1_1 layer
@@ -62,7 +64,7 @@ h_conv3_1 = tf.nn.relu(conv2d(conv_2_pool, W_conv3_1) + b_conv3_1) # output_size
 ## conv3_2 layer
 W_conv3_2 = weight_variable([3, 3, 256, 256])
 b_conv3_2 = bias_variable([256])
-h_conv3_2 = tf.nn.relu(conv2d(h_conv3_1, W_conv3_2), + b_conv3_2) # output_size 56x56x256
+h_conv3_2 = tf.nn.relu(conv2d(h_conv3_1, W_conv3_2) + b_conv3_2) # output_size 56x56x256
 ## conv3_3 layer
 W_conv3_3 = weight_variable([3, 3, 256, 256])
 b_conv3_3 = bias_variable([256])
@@ -82,7 +84,7 @@ h_conv4_2 = tf.nn.relu(conv2d(h_conv4_1, W_conv4_2) + b_conv4_2)
 ## conv4_ layer
 W_conv4_3 = weight_variable([3, 3, 512, 512])
 b_conv4_3 = bias_variable([512])
-h_conv4_3 = tf.nn.relu(conv2d(h_conv4_2, W_conv3_3) + b_conv3_3)
+h_conv4_3 = tf.nn.relu(conv2d(h_conv4_2, W_conv4_3) + b_conv4_3)
 conv_4_pool = max_pool_2x2(h_conv4_3) # output_size 14x14x512
 
 
@@ -106,24 +108,21 @@ conv_5_pool_flat = tf.reshape(conv_5_pool, [-1, 7*7*512]) # samplesx25088
 ## fcn_1 layer
 W_fcn1 = weight_variable([7*7*512, 4096])
 b_fcn1 = bias_variable([4096])
-h_fcn1 = tf.nn.relu(conv2d(conv_5_pool_flat, W_fcn1) + b_fcn1) # output_size 4096
+h_fcn1 = tf.nn.relu(tf.matmul(conv_5_pool_flat, W_fcn1) + b_fcn1) # output_size 4096
 
 ## fcn_2 layer
 W_fcn2 = weight_variable([4096, 4096])
 b_fcn2 = bias_variable([4096])
-h_fcn2 = tf.nn.relu(conv2d(h_fcn1, W_fcn2) + b_fcn2) # output_size 4096
+h_fcn2 = tf.nn.relu(tf.matmul(h_fcn1, W_fcn2) + b_fcn2) # output_size 4096
 
 ## prediction layer
 W_fcn3 = weight_variable([4096, 1024])
 b_fcn3 = bias_variable([1024])
-prediction = tf.nn.relu(conv2d(h_fcn2, W_fcn3) + b_fcn3) # output_size 1024
+prediction = tf.nn.relu(tf.matmul(h_fcn2, W_fcn3) + b_fcn3) # output_size 1024
 
 ## the error between prediction and real data
-cross_entropy = tf.reduce_mean(-tf.reduce_sum(ys * tf.log(prediction),
-                                              reduction_indices=[1]))
-train_step = tf.train.GradientDescentOptimizer(learing_rate).minimize(cross_entropy)
-
-## 如何计算prediction与真实值的误差来衡量一个精准度标准？？？
+euclidean = tf.sqrt(tf.reduce_sum(tf.square(prediction - y_gt), reduction_indices=[1]))   # 欧式距离
+train_step = tf.train.GradientDescentOptimizer(learing_rate).minimize(euclidean)
 
 ## train
 image_lt_15, label_lt_15 = Read_left_15.read_and_decode("left_15.tfrecords")
@@ -140,16 +139,21 @@ np_l_ff = np.zeros((batch_size,1))
 
 with tf.Session() as sess:
     try:
-        sess.run(tf.initialize_all_variables)
+        sess.run(tf.initialize_all_variables
+                 ())
         for iteration in range(60):
             for i in range(batch_size):
+                print('start get image and lables...')
                 np_example_lt_15[i], np_l_lt_15[i] = sess.run([image_lt_15, label_lt_15])  # 在会话中取出image和label
-            train_step.run(feed_dict={xs: np_example_lt_15, ys: np_l_lt_15})
-        print()  # accurace???
-
+                np_example_ff[i], np_l_ff[i] = sess.run([image_ff, label_ff])
+                print('start train_step...')
+            sess.run(train_step, feed_dict={xs: np_example_lt_15, ys: np_example_ff})
+            print('train_step over')
+            print('the '+ iteration + 'th' + 'iteration euclidean is below: ')
+            print(sess.run(euclidean, feed_dict={xs: np_example_lt_15, ys: np_example_ff}))
     except tf.errors.OutOfRangeError:
         print('done!')
     finally:
         coord.request_stop()
-    coord.join(threads)
+        coord.join(threads)
 
