@@ -7,21 +7,23 @@ from skimage import data_dir
 
 def resize_img(f,**kwargs):
     img = io.imread(f)  # 依次读取rgb图片
-    #gray = color.rgb2gray(img)  # 将rgb图片转换成灰度图
+    gray = color.rgb2gray(img)  # 将rgb图片转换成灰度图
     dst = transform.resize(img, (224, 224))  # 将灰度图片大小转换为256*256
-    return dst
+    return img
 
-str = '/Users/arrow/Documents/feret-images/*.tif'
-coll = io.ImageCollection(str, load_func=resize_img)
+str = 'E:\Datasets\image_rgb\*.tif'
+coll = io.ImageCollection(str)
 #print(len(coll))        # 显示collection里面的图片数量
-#print(coll[100].shape)  # the image size
+#print(coll[0].shape)  # the image size
 #print(type(coll[0]))    # class 'numpy.ndarray'
+#print(coll[0])
 #io.imshow(coll[0])     # 显示某张图片
-for j in range(200):    # 200 samples
-    io.imsave('/Users/arrow/Documents/DataSets/Diversity_Angel/left_15/' + np.str(4 + j*9) + '.jpg',
-                  coll[4 + j*9]) #循环保存图片
 
-    '''
+for j in range(200):    # 200 samples
+    io.imsave('E:\Datasets\Diversity_Angel_rgb\\right_60\\' + np.str(8 + j*9) + '.jpg',
+                  coll[8 + j*9])  #循环保存图片
+
+'''
     while j == 2:
         for i in range(200):
             io.imsave('/Users/arrow/Documents/DataSets/Diversity_Angel/left_45/' + np.str(j + j * 9) + '.jpg',

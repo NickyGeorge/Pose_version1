@@ -13,7 +13,7 @@ def read_and_decode(filename):  # 读入front_face_32.tfrecords
                                        })  # 将image数据和label取出来
 
     img = tf.decode_raw(features['img_raw'], tf.uint8)
-    img = tf.reshape(img, [32, 32])  # reshape为32*32的1通道图片
+    img = tf.reshape(img, [32, 32   ])  # reshape为32*32的1通道图片
     img = tf.cast(img, tf.float32) * (1. / 255) - 0.5  # 在流中抛出img张量
     label = tf.cast(features['label'], tf.int32)  # 在流中抛出label张量
     return img, label

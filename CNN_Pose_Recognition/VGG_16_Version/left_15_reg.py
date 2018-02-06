@@ -2,8 +2,10 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 import Read_left_15,Read_front_32
+import skimage.io as io
+from skimage import  color,transform
 
-batch_size = 32
+batch_size = 5
 learing_rate = 0.01
 
 def weight_variable(shape):
@@ -127,28 +129,28 @@ train_step = tf.train.GradientDescentOptimizer(learing_rate).minimize(euclidean)
 ## train
 image_lt_15, label_lt_15 = Read_left_15.read_and_decode("left_15.tfrecords")
 image_ff, label_ff = Read_front_32.read_and_decode("front_face_32.tfrecords")
-sess = tf.InteractiveSession()
-tf.global_variables_initializer().run()
-coord=tf.train.Coordinator()
-threads= tf.train.start_queue_runners(coord=coord)
+
 np_example_lt_15 = np.zeros((batch_size,224,224))
 np_l_lt_15= np.zeros((batch_size,1))
 
 np_example_ff = np.zeros((batch_size,32,32))
 np_l_ff = np.zeros((batch_size,1))
-
+## 
 with tf.Session() as sess:
     try:
         sess.run(tf.initialize_all_variables
                  ())
-        for iteration in range(60):
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+        for iteration in range(10):
             for i in range(batch_size):
                 print('start get image and lables...')
-                np_example_lt_15[i], np_l_lt_15[i] = sess.run([image_lt_15, label_lt_15])  # 在会话中取出image和label
-                np_example_ff[i], np_l_ff[i] = sess.run([image_ff, label_ff])
+                np_example_lt_15[i] = sess.run([image_lt_15])  # 在会话中取出image和label
+                np_example_ff[i] = sess.run([image_ff])
                 print('start train_step...')
             sess.run(train_step, feed_dict={xs: np_example_lt_15, ys: np_example_ff})
             print('train_step over')
+
             print('the '+ iteration + 'th' + 'iteration euclidean is below: ')
             print(sess.run(euclidean, feed_dict={xs: np_example_lt_15, ys: np_example_ff}))
     except tf.errors.OutOfRangeError:
