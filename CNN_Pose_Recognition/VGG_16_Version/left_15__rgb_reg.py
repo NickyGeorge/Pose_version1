@@ -1,8 +1,8 @@
 from __future__ import print_function
 import tensorflow as tf
 import numpy as np
-import front_face_rgb_normalization
-import left_15_rgb_normalization
+import front_face_rgb
+import left_15_rgb
 #import Read_left_15,Read_front_32
 import skimage.io as io
 from skimage import  color,transform
@@ -32,9 +32,9 @@ def fully_connect(x, W):
 
 # define placeholder for inputs to network
 xs = tf.placeholder(tf.float32, [batch_size, 224, 224, 3])   # 224x224x3
-ys = tf.placeholder(tf.float32, [batch_size, 32, 32])  # ground truth
+ys = tf.placeholder(tf.float32, [batch_size, 32, 32, 3])  # ground truth
 keep_prob = tf.placeholder(tf.float32)
-y_gt = tf.reshape(ys, [-1, 1024])  # [batch_size, 1024]
+y_gt = tf.reshape(ys, [-1, 32*32*3])  # [batch_size, 3072]
 
 ##-----------conv_1_block layer---------- ##
 ## conv1_1 layer
@@ -120,19 +120,19 @@ b_fcn2 = bias_variable([4096])
 h_fcn2 = tf.nn.relu(tf.matmul(h_fcn1, W_fcn2) + b_fcn2) # output_size 4096
 
 ## prediction layer
-W_fcn3 = weight_variable([4096, 1024])
-b_fcn3 = bias_variable([1024])
-prediction = tf.nn.relu(tf.matmul(h_fcn2, W_fcn3) + b_fcn3) # output_size 1024
+W_fcn3 = weight_variable([4096, 32*32*3])
+b_fcn3 = bias_variable([32*32*3])
+prediction = tf.nn.relu(tf.matmul(h_fcn2, W_fcn3) + b_fcn3) # output_size 3072
 
 ## the error between prediction and real data
 euclidean = tf.sqrt(tf.reduce_sum(tf.square(prediction - y_gt), reduction_indices=[1]))   # 欧式距离
 train_step = tf.train.GradientDescentOptimizer(learing_rate).minimize(euclidean)
 
 ## train
-image_ff = np.zeros((200, 32, 32))
+image_ff = np.zeros((200, 32, 32, 3))
 image_lt_15 = np.zeros((200, 224, 224, 3))
-image_lt_15 = left_15_rgb_normalization.Collect_Pic()
-image_ff = front_face_rgb_normalization.Collect_Pic()
+image_lt_15 = left_15_rgb.Collect_Pic()
+image_ff = front_face_rgb.Collect_Pic()
 #print(image_lt_15[8])
 #print(image_ff[8])
 #print(len(image_ff))
@@ -140,13 +140,13 @@ image_ff = front_face_rgb_normalization.Collect_Pic()
 #print(image_lt_15.shape)
 #print(image_ff.shape)
 np_example_lt_15 = np.zeros((batch_size,224,224,3))
-np_example_ff = np.zeros((batch_size,32,32))
+np_example_ff = np.zeros((batch_size,32,32, 3))
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     j = 0
-    results_prediction = np.zeros((50 ,40, 1024))
-    results_y_gt = np.zeros((50, 40, 1024))
+    results_prediction = np.zeros((50 ,40, 3072))
+    results_y_gt = np.zeros((50, 40, 3072))
     results_1 = np.zeros((50, 40))
     for iteration in range(50):
         for i in range(batch_size):
@@ -170,16 +170,16 @@ with tf.Session() as sess:
         #results_1[iteration] = sess.run(euclidean, feed_dict={xs: np_example_lt_15, ys: np_example_ff})
         #print(sess.run(euclidean, feed_dict={xs: np_example_lt_15, ys: np_example_ff}).shape)
 
-with open('.\Results\left_15_rgb_reg\letf_15_reg_prediction_results.txt', 'w') as outfile:
+with open('E:\Pycharmworfspace\Pose_version1\CNN_Pose_Recognition\VGG_16_Version\Results\left_15__rgb_reg\letf_15_reg_prediction_results.txt', 'w') as outfile:
     outfile.write('# Array shape: {0}\n'.format(results_prediction.shape))
     for data_slice in results_prediction:
         np.savetxt(outfile, data_slice, fmt='%-7.2f')
         outfile.write('# New slice\n')
 
-with open('.\Results\left_15_rgb_reg\letf_15_reg_y_gt_results.txt', 'w') as outfile:
+with open('E:\Pycharmworfspace\Pose_version1\CNN_Pose_Recognition\VGG_16_Version\Results\left_15__rgb_reg\letf_15_reg_y_gt_results.txt', 'w') as outfile:
     outfile.write('# Array shape: {0}\n'.format(results_y_gt.shape))
-    for data_slice in results_prediction:
+    for data_slice in results_y_gt:
         np.savetxt(outfile, data_slice, fmt='%-7.2f')
         outfile.write('# New slice\n')
 
-np.savetxt('.\Results\left_15_reg_euclidean_results.txt', results_1)
+np.savetxt('E:\Pycharmworfspace\Pose_version1\CNN_Pose_Recognition\VGG_16_Version\Results\left_15__rgb_reg\left_15_reg_euclidean_results.txt', results_1)

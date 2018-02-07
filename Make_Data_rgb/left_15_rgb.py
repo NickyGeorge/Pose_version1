@@ -10,10 +10,10 @@ def resize_img(f,**kwargs):
 
 str = 'E:\Datasets\Diversity_Angel_rgb\left_15\*.jpg'
 coll = io.ImageCollection(str)
-#print(coll[0])
+print(coll[8])
 #print(coll[0].shape)
 imgs =  np.zeros((len(coll), 224, 224, 3))
-imgs[0] = coll[0]
+#imgs[0] = coll[0]
 #print(imgs[0])
 #print('-------------------------')
 #print(coll[0])
